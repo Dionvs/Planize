@@ -27,7 +27,13 @@ Er is geen Firebase Hosting, Firebase CLI, gebruikerslogin, Google OAuth of Goog
 4. Kies een geschikte locatie.
 5. Start eventueel in testmodus.
 
-De app gebruikt de collection `tasks`. Het document `tasks/app-settings-rooms` bewaart de gedeelde lijst met ruimtes. Gewone documenten in `tasks` zijn huishoudelijke taken.
+De eenvoudige tussenversie gebruikt de collection `tasks` voor:
+
+- huishoudelijke taken met een `familyId`;
+- gezinsgegevens met `documentType: "family-settings"`;
+- gedeelde ruimtes met `documentType: "room-settings"`.
+
+Bestaande taken zonder `familyId` worden automatisch gezien als taken van `Poproute 57`.
 
 ## 3. Web App registreren
 
@@ -75,7 +81,7 @@ service cloud.firestore {
 
 Klik daarna op `Publish`.
 
-Waarschuwing: iedereen die de link en Firebase-projectgegevens heeft, kan technisch gezien de takenlijst aanpassen. De gezinscode is alleen een praktische toegangsdrempel en geen echte databasebeveiliging. Gebruik dit alleen voor privégebruik of voeg later Firebase Authentication en strengere rules toe.
+Waarschuwing: iedereen die de link en Firebase-projectgegevens heeft, kan technisch gezien alle gezinsdocumenten lezen of aanpassen. De gezinscode wordt gehasht opgeslagen, maar is zonder Firebase Authentication nog steeds geen echte databasebeveiliging. Deze tussenversie is alleen geschikt voor testen en kleinschalig privégebruik.
 
 ## 6. GitHub-repository maken
 
@@ -157,15 +163,16 @@ Open daarna:
 http://localhost:5000
 ```
 
-## Gezinscode
+## Gezinnen en codes
 
-De standaardcode staat in `script.js`:
+Op het openingsscherm kan iemand:
 
-```js
-const FAMILY_CODE = "1234";
-```
+- een bestaand gezin openen met gezinsnaam en code;
+- een nieuw gezin aanmaken met een eigen naam en code.
 
-Pas deze waarde aan voordat je de GitHub Pages-link deelt.
+De code wordt als SHA-256-hash opgeslagen. `Poproute 57` blijft voor bestaande data beschikbaar met de oude code `1234`. De gekozen gezinssessie wordt lokaal onthouden totdat op `Uit` wordt geklikt.
+
+Voor een publieke uitgave moet dit later worden vervangen door Firebase Authentication, echte gebruikersaccounts, gezinslidmaatschappen en strengere Firestore-rules.
 
 ## Agenda en meldingen
 

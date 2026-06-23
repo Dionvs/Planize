@@ -1,6 +1,6 @@
 {
-  "name": "Poproute 57",
-  "short_name": "Poproute 57",
+  "name": "Gezinslijst",
+  "short_name": "Gezinslijst",
   "description": "Gedeelde schoonmaak- en huishoudtaken voor het gezin.",
   "start_url": "./index.html",
   "scope": "./",

@@ -169,6 +169,31 @@ textarea {
   color: var(--muted);
 }
 
+.gate-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gate-tab {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.gate-tab.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.gate-warning {
+  font-size: 0.8rem;
+}
+
 .panel,
 .filters,
 .list-section {

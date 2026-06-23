@@ -1,9 +1,9 @@
-const CACHE_NAME = "poproute-57-rooms-monthweek-v1";
+const CACHE_NAME = "poproute-57-multi-family-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./style.css?v=rooms-monthweek-v1",
-  "./script.js?v=rooms-monthweek-v1",
+  "./style.css?v=multi-family-v2",
+  "./script.js?v=multi-family-v2",
   "./firebase-config.js",
   "./manifest.json"
 ];

@@ -19,6 +19,7 @@ const DEFAULT_FAMILY_MEMBERS = ["Dion", "Dara"];
 const ADD_MEMBER_VALUE = "__add_member__";
 const GENERAL_ASSIGNEE = "Algemeen";
 const FAMILY_CODE = "1234";
+const LEGACY_FAMILY = { id: "poproute-57", naam: "Poproute 57" };
 const DEFAULT_ROOMS = ["Keuken", "Badkamer", "Toilet", "Woonkamer", "Slaapkamer", "Algemeen", "Buiten", "Tuin", "Overig"];
 const ROOM_SETTINGS_ID = "app-settings-rooms";
 const CATEGORIES = ["Dagelijks", "Wekelijks", "Maandelijks", "Seizoensgebonden", "Overig"];
@@ -48,13 +49,16 @@ const STORAGE_KEYS = {
   customMembers: "gezinslijst.customMembers",
   filters: "gezinslijst.filters",
   notifications: "gezinslijst.notifications",
-  familyCodeAccepted: "gezinslijst.familyCodeAccepted"
+  familyCodeAccepted: "gezinslijst.familyCodeAccepted",
+  activeFamily: "gezinslijst.activeFamily"
 };
 
 const state = {
   tasks: [],
   rooms: [...DEFAULT_ROOMS],
   filters: loadFilters(),
+  familyMode: "join",
+  activeFamily: loadActiveFamily(),
   currentView: "today",
   notificationsShownForLoad: false
 };
@@ -66,8 +70,14 @@ const els = {
   familyGate: document.querySelector("#familyGate"),
   appRoot: document.querySelector("#appRoot"),
   familyCodeForm: document.querySelector("#familyCodeForm"),
+  familyGateTitle: document.querySelector("#familyGateTitle"),
+  familyGateIntro: document.querySelector("#familyGateIntro"),
+  familyGateSubmit: document.querySelector("#familyGateSubmit"),
+  familyModeButtons: document.querySelectorAll("[data-family-mode]"),
+  familyNameInput: document.querySelector("#familyNameInput"),
   familyCodeInput: document.querySelector("#familyCodeInput"),
   familyCodeError: document.querySelector("#familyCodeError"),
+  activeFamilyName: document.querySelector("#activeFamilyName"),
   memberSelect: document.querySelector("#memberSelect"),
   errorBox: document.querySelector("#errorBox"),
   tabCountToday: document.querySelector("#tabCountToday"),
@@ -149,7 +159,7 @@ function init() {
   bindEvents();
   resetForm();
   registerServiceWorker();
-  if (isFamilyCodeAccepted()) {
+  if (state.activeFamily) {
     showApp();
   } else {
     showFamilyGate();
@@ -158,6 +168,7 @@ function init() {
 
 function bindEvents() {
   els.familyCodeForm.addEventListener("submit", handleFamilyCodeSubmit);
+  els.familyModeButtons.forEach((button) => button.addEventListener("click", () => setFamilyMode(button.dataset.familyMode)));
   els.logoutFamilyCodeButton.addEventListener("click", logoutFamilyCode);
 
   els.memberSelect.addEventListener("change", () => {
@@ -214,40 +225,215 @@ function bindEvents() {
   els.taskList.addEventListener("change", handleTaskSelectionChange);
 }
 
-function handleFamilyCodeSubmit(event) {
+async function handleFamilyCodeSubmit(event) {
   event.preventDefault();
-  if (els.familyCodeInput.value.trim() === FAMILY_CODE) {
-    localStorage.setItem(STORAGE_KEYS.familyCodeAccepted, "true");
-    els.familyCodeError.classList.add("hidden");
-    showApp();
-  } else {
-    els.familyCodeError.classList.remove("hidden");
+  const familyName = els.familyNameInput.value.trim();
+  const familyCode = els.familyCodeInput.value.trim();
+  if (!familyName || familyCode.length < 4) {
+    showFamilyError("Vul een gezinsnaam en een code van minimaal 4 tekens in.");
+    return;
+  }
+
+  if (state.familyMode === "join" && isLegacyFamilyCredentials(familyName, familyCode)) {
+    activateFamily({ ...LEGACY_FAMILY });
+    registerLegacyFamily().catch((error) => console.warn("Poproute 57 registreren uitgesteld", error));
+    return;
+  }
+
+  els.familyGateSubmit.disabled = true;
+  els.familyGateSubmit.textContent = state.familyMode === "create" ? "Gezin maken..." : "Gezin zoeken...";
+  try {
+    await withTimeout(ensureFirestoreConnection(), 12000, "Firebase reageert niet op tijd.");
+    const family = state.familyMode === "create"
+      ? await withTimeout(createFamily(familyName, familyCode), 12000, "Gezin aanmaken duurt te lang.")
+      : await withTimeout(joinFamily(familyName, familyCode), 12000, "Gezin zoeken duurt te lang.");
+    if (!family) return;
+    activateFamily(family);
+  } catch (error) {
+    console.error(error);
+    showFamilyError(error.message || "Gezin openen mislukt. Controleer je internetverbinding en Firestore-regels.");
+  } finally {
+    els.familyGateSubmit.disabled = false;
+    syncFamilyGateText();
   }
 }
 
 function logoutFamilyCode() {
   localStorage.removeItem(STORAGE_KEYS.familyCodeAccepted);
+  localStorage.removeItem(STORAGE_KEYS.activeFamily);
   if (unsubscribeTasks) unsubscribeTasks();
   unsubscribeTasks = null;
   state.tasks = [];
+  state.activeFamily = null;
   showFamilyGate();
-}
-
-function isFamilyCodeAccepted() {
-  return localStorage.getItem(STORAGE_KEYS.familyCodeAccepted) === "true";
 }
 
 function showApp() {
   els.familyGate.classList.add("hidden");
   els.appRoot.classList.remove("hidden");
+  els.activeFamilyName.textContent = state.activeFamily?.naam || "Gezinslijst";
+  document.title = state.activeFamily?.naam || "Gezinslijst";
   if (!unsubscribeTasks) startFirestore();
 }
 
 function showFamilyGate() {
   els.appRoot.classList.add("hidden");
   els.familyGate.classList.remove("hidden");
+  els.familyCodeError.classList.add("hidden");
+  els.familyNameInput.value = "";
   els.familyCodeInput.value = "";
-  els.familyCodeInput.focus();
+  setFamilyMode("join");
+  els.familyNameInput.focus();
+}
+
+function setFamilyMode(mode) {
+  state.familyMode = mode === "create" ? "create" : "join";
+  els.familyModeButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.familyMode === state.familyMode));
+  syncFamilyGateText();
+}
+
+function syncFamilyGateText() {
+  const creating = state.familyMode === "create";
+  els.familyGateTitle.textContent = creating ? "Nieuw gezin" : "Gezin openen";
+  els.familyGateIntro.textContent = creating
+    ? "Maak een gedeelde gezinslijst en kies samen een code."
+    : "Open de gedeelde lijst met de gezinsnaam en code.";
+  els.familyGateSubmit.textContent = creating ? "Gezin aanmaken" : "Gezin openen";
+  els.familyCodeInput.autocomplete = creating ? "new-password" : "current-password";
+}
+
+function showFamilyError(message) {
+  els.familyCodeError.textContent = message;
+  els.familyCodeError.classList.remove("hidden");
+}
+
+async function ensureFirestoreConnection() {
+  if (firebaseConfig.apiKey.includes("VUL_HIER")) throw new Error("Firebase-config ontbreekt");
+  await loadFirebaseModules();
+  if (!db) {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+  }
+}
+
+async function createFamily(name, code) {
+  const snapshot = await getDocs(collection(db, "tasks"));
+  const familyDocs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.documentType === "family-settings");
+  if (familyDocs.some((family) => normalizeFamilyName(family.naam) === normalizeFamilyName(name))) {
+    showFamilyError("Deze gezinsnaam bestaat al. Kies een andere naam of open het bestaande gezin.");
+    return null;
+  }
+
+  const familyId = createFamilyId(name);
+  const family = { id: familyId, naam: name.trim() };
+  await setDoc(doc(db, "tasks", familySettingsId(familyId)), {
+    documentType: "family-settings",
+    familyId,
+    naam: family.naam,
+    codeHash: await hashFamilyCode(code),
+    actief: false,
+    volgendeDeadline: "9999-12-31",
+    aangemaaktOp: serverTimestamp()
+  });
+  return family;
+}
+
+async function joinFamily(name, code) {
+  const snapshot = await getDocs(collection(db, "tasks"));
+  const familyDocs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.documentType === "family-settings");
+  const matching = familyDocs.find((family) => normalizeFamilyName(family.naam) === normalizeFamilyName(name));
+  const codeHash = await hashFamilyCode(code);
+
+  if (matching && matching.codeHash === codeHash) return { id: matching.familyId, naam: matching.naam };
+
+  if (isLegacyFamilyCredentials(name, code) && !matching) {
+    await setDoc(doc(db, "tasks", familySettingsId(LEGACY_FAMILY.id)), {
+      documentType: "family-settings",
+      familyId: LEGACY_FAMILY.id,
+      naam: LEGACY_FAMILY.naam,
+      codeHash,
+      actief: false,
+      volgendeDeadline: "9999-12-31",
+      aangemaaktOp: serverTimestamp()
+    });
+    return { ...LEGACY_FAMILY };
+  }
+
+  showFamilyError("Gezinsnaam of gezinscode is onjuist.");
+  return null;
+}
+
+function isLegacyFamilyCredentials(name, code) {
+  return normalizeFamilyName(name) === normalizeFamilyName(LEGACY_FAMILY.naam) && code === FAMILY_CODE;
+}
+
+async function registerLegacyFamily() {
+  await ensureFirestoreConnection();
+  const codeHash = await hashFamilyCode(FAMILY_CODE);
+  await setDoc(doc(db, "tasks", familySettingsId(LEGACY_FAMILY.id)), {
+    documentType: "family-settings",
+    familyId: LEGACY_FAMILY.id,
+    naam: LEGACY_FAMILY.naam,
+    codeHash,
+    actief: false,
+    volgendeDeadline: "9999-12-31",
+    aangemaaktOp: serverTimestamp()
+  }, { merge: true });
+}
+
+function withTimeout(promise, milliseconds, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), milliseconds))
+  ]);
+}
+
+function activateFamily(family) {
+  state.activeFamily = family;
+  localStorage.setItem(STORAGE_KEYS.activeFamily, JSON.stringify(family));
+  localStorage.setItem(STORAGE_KEYS.familyCodeAccepted, "true");
+  els.familyCodeError.classList.add("hidden");
+  showApp();
+}
+
+function loadActiveFamily() {
+  try {
+    const family = JSON.parse(localStorage.getItem(STORAGE_KEYS.activeFamily) || "null");
+    if (family?.id && family?.naam) return family;
+    if (localStorage.getItem(STORAGE_KEYS.familyCodeAccepted) === "true") return { ...LEGACY_FAMILY };
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalizeFamilyName(value) {
+  return String(value).trim().toLowerCase();
+}
+
+function createFamilyId(name) {
+  const slug = normalizeFamilyName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32) || "gezin";
+  return `${slug}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function familySettingsId(familyId) {
+  return `family-settings-${familyId}`;
+}
+
+function roomSettingsId() {
+  return `room-settings-${state.activeFamily?.id || LEGACY_FAMILY.id}`;
+}
+
+function taskBelongsToActiveFamily(task) {
+  if (!state.activeFamily) return false;
+  if (task.familyId) return task.familyId === state.activeFamily.id;
+  return state.activeFamily.id === LEGACY_FAMILY.id;
+}
+
+async function hashFamilyCode(code) {
+  const bytes = new TextEncoder().encode(code);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function startFirestore() {
@@ -259,17 +445,15 @@ async function startFirestore() {
   }
 
   try {
-    await loadFirebaseModules();
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
+    await ensureFirestoreConnection();
     const taskQuery = query(collection(db, "tasks"), orderBy("volgendeDeadline", "asc"));
     unsubscribeTasks = onSnapshot(
       taskQuery,
       (snapshot) => {
         const documents = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-        const roomSettings = documents.find((item) => item.id === ROOM_SETTINGS_ID || item.documentType === "room-settings");
+        const roomSettings = documents.find((item) => item.id === roomSettingsId() || (item.documentType === "room-settings" && item.familyId === state.activeFamily.id) || (state.activeFamily.id === LEGACY_FAMILY.id && item.id === ROOM_SETTINGS_ID));
         state.rooms = roomSettings?.ruimtes?.length ? roomSettings.ruimtes : [...DEFAULT_ROOMS];
-        state.tasks = documents.filter((item) => item.id !== ROOM_SETTINGS_ID && item.documentType !== "room-settings");
+        state.tasks = documents.filter((item) => !item.documentType && taskBelongsToActiveFamily(item));
         syncRoomOptions();
         renderRoomList();
         state.notificationsShownForLoad = false;
@@ -451,12 +635,14 @@ async function saveTask(event) {
       await updateDoc(doc(db, "tasks", id), {
         ...payload,
         ...completionPatch,
+        familyId: state.activeFamily.id,
         laatstAangepastOp: serverTimestamp(),
         laatstAangepastDoor: selectedMember()
       });
     } else {
       await addDoc(collection(db, "tasks"), {
         ...payload,
+        familyId: state.activeFamily.id,
         voltooid: false,
         aangemaaktOp: serverTimestamp(),
         laatstAangepastOp: serverTimestamp(),
@@ -510,12 +696,14 @@ async function markDone(task) {
   try {
     const update = task.type === "eenmalig"
       ? {
+          familyId: state.activeFamily.id,
           laatstGedaan: today,
           voltooid: true,
           laatstAangepastOp: serverTimestamp(),
           laatstAangepastDoor: selectedMember()
         }
       : {
+          familyId: state.activeFamily.id,
           laatstGedaan: today,
           volgendeDeadline: calculateNextDeadline(normalizeTask(task), today),
           voltooid: false,
@@ -584,7 +772,8 @@ async function addDefaultTasks() {
     const existingSnapshot = await getDocs(collection(db, "tasks"));
     const existingKeys = new Set(
       existingSnapshot.docs
-        .map((item) => item.data())
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((task) => !task.documentType && taskBelongsToActiveFamily(task))
         .filter((task) => task.actief !== false)
         .map((task) => duplicateKey(task.naam, task.ruimte))
     );
@@ -595,6 +784,7 @@ async function addDefaultTasks() {
       additions.map(([naam, ruimte, categorie, intervalDagen]) =>
         addDoc(collection(db, "tasks"), {
           naam,
+          familyId: state.activeFamily.id,
           type: "terugkerend",
           ruimte,
           categorie,
@@ -1137,8 +1327,9 @@ async function saveRooms(rooms) {
     return;
   }
   try {
-    await setDoc(doc(db, "tasks", ROOM_SETTINGS_ID), {
+    await setDoc(doc(db, "tasks", roomSettingsId()), {
       documentType: "room-settings",
+      familyId: state.activeFamily.id,
       ruimtes: rooms,
       actief: false,
       volgendeDeadline: "9999-12-31",

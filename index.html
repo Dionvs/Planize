@@ -1,26 +1,35 @@
 <!doctype html>
 <html lang="nl">
-  <!-- Poproute 57 update: rooms-monthweek-v1 -->
+  <!-- Poproute 57 update: multi-family-v2 -->
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#256f67">
     <meta name="description" content="Gedeelde schoonmaak- en takenlijst voor het gezin.">
-    <title>Poproute 57</title>
+    <title>Gezinslijst</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css?v=rooms-monthweek-v1">
+    <link rel="stylesheet" href="style.css?v=multi-family-v2">
   </head>
   <body>
     <section id="familyGate" class="gate-screen">
       <form id="familyCodeForm" class="gate-card">
-        <h1>Voer gezinscode in</h1>
-        <p>Deze gedeelde lijst is bedoeld voor het gezin.</p>
+        <h1 id="familyGateTitle">Gezin openen</h1>
+        <p id="familyGateIntro">Open de gedeelde lijst met de gezinsnaam en code.</p>
+        <div class="gate-tabs">
+          <button class="gate-tab is-active" type="button" data-family-mode="join">Gezin openen</button>
+          <button class="gate-tab" type="button" data-family-mode="create">Nieuw gezin</button>
+        </div>
+        <label>
+          Gezinsnaam
+          <input id="familyNameInput" type="text" maxlength="60" autocomplete="organization" placeholder="Bijvoorbeeld: Poproute 57" required>
+        </label>
         <label>
           Gezinscode
-          <input id="familyCodeInput" type="password" inputmode="numeric" autocomplete="current-password" required>
+          <input id="familyCodeInput" type="password" minlength="4" maxlength="40" autocomplete="current-password" required>
         </label>
-        <button class="button button-primary" type="submit">Open Poproute 57</button>
-        <div id="familyCodeError" class="message message-error hidden" role="alert">Onjuiste gezinscode</div>
+        <button id="familyGateSubmit" class="button button-primary" type="submit">Gezin openen</button>
+        <p class="gate-warning">De gezinscode is voorlopig een eenvoudige toegangsdrempel, geen echte beveiligde login.</p>
+        <div id="familyCodeError" class="message message-error hidden" role="alert"></div>
       </form>
     </section>
 
@@ -28,7 +37,7 @@
     <header class="app-header">
       <div class="header-main">
         <div>
-          <h1>Poproute 57</h1>
+          <h1 id="activeFamilyName">Poproute 57</h1>
           <p>Schoonmaak- en huishoudtaken, realtime gedeeld.</p>
         </div>
         <div class="member-picker">
@@ -238,6 +247,6 @@
     </main>
     </div>
 
-    <script type="module" src="script.js?v=rooms-monthweek-v1"></script>
+    <script type="module" src="script.js?v=multi-family-v2"></script>
   </body>
 </html>
