@@ -1,9 +1,9 @@
-const CACHE_NAME = "poproute-57-multi-family-v2";
+const CACHE_NAME = "gezinslijst-compact-ui-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./style.css?v=multi-family-v2",
-  "./script.js?v=multi-family-v2",
+  "./style.css?v=compact-ui-v2",
+  "./script.js?v=compact-ui-v2",
   "./firebase-config.js",
   "./manifest.json"
 ];

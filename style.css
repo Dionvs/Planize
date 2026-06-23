@@ -45,6 +45,7 @@ textarea {
 
 button {
   cursor: pointer;
+  max-width: 100%;
 }
 
 .app-header {
@@ -107,6 +108,10 @@ h2 {
 .app-shell {
   padding: 0 18px 42px;
   transform: translateY(-30px);
+}
+
+.app-shell > * {
+  min-width: 0;
 }
 
 label {
@@ -210,7 +215,7 @@ textarea {
 
 .tabbar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -238,6 +243,7 @@ textarea {
   color: var(--text);
   background: #fff;
   font-weight: 800;
+  white-space: normal;
 }
 
 .logout-button {
@@ -289,6 +295,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
 }
@@ -298,6 +305,7 @@ textarea {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 
 .select-all-tasks {
@@ -435,7 +443,7 @@ textarea {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -446,8 +454,22 @@ textarea {
 }
 
 .filters {
+  display: block;
+}
+
+.filters > summary {
+  color: var(--accent);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.filters[open] > summary {
+  margin-bottom: 14px;
+}
+
+.filters-grid {
   display: grid;
-  grid-template-columns: 2fr repeat(4, 1fr) auto;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr)) auto;
   gap: 12px;
   align-items: end;
 }
@@ -496,7 +518,7 @@ textarea {
 
 .task-card {
   display: grid;
-  grid-template-columns: auto minmax(220px, 1.5fr) repeat(5, minmax(112px, 1fr)) minmax(250px, auto);
+  grid-template-columns: auto minmax(0, 1fr) minmax(120px, auto) auto;
   gap: 12px;
   align-items: center;
   padding: 14px;
@@ -507,7 +529,7 @@ textarea {
 }
 
 .task-card-planning {
-  grid-template-columns: minmax(220px, 1.5fr) repeat(5, minmax(112px, 1fr)) minmax(250px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto) auto;
 }
 
 .select-task {
@@ -546,15 +568,34 @@ textarea {
   opacity: 0.78;
 }
 
-.task-title {
+.task-title,
+.task-main {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
-.task-title h3 {
+.task-title h3,
+.task-main h3 {
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.task-deadline {
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.task-deadline strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  text-transform: none;
 }
 
 .task-meta,
@@ -632,12 +673,37 @@ textarea {
 }
 
 .task-note {
-  grid-column: 1 / -1;
   padding: 10px 12px;
   border-radius: var(--radius);
   background: #f8faf8;
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.task-more {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.task-more summary {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.task-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.calendar-button {
+  margin-top: 10px;
 }
 
 .task-actions {
@@ -674,7 +740,7 @@ textarea {
 }
 
 @media (max-width: 980px) {
-  .filters,
+  .filters-grid,
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -683,17 +749,25 @@ textarea {
     grid-column: 1 / -1;
   }
 
-  .task-card {
-    grid-template-columns: 1fr 1fr;
+  .filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .task-title,
-  .task-actions {
-    grid-column: 1 / -1;
+  .task-card,
+  .task-card-planning {
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .task-actions {
-    justify-content: flex-start;
+  .task-card-planning {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .task-deadline {
+    grid-column: 2;
+  }
+
+  .task-card-planning .task-deadline {
+    grid-column: 1;
   }
 }
 
@@ -711,10 +785,25 @@ textarea {
     padding-inline: 12px;
   }
 
-  .filters,
+  .filters-grid,
   .form-grid,
   .task-card {
     grid-template-columns: 1fr;
+  }
+
+  .task-card-planning {
+    grid-template-columns: 1fr;
+  }
+
+  .select-task,
+  .task-deadline,
+  .task-card-planning .task-deadline,
+  .task-actions {
+    grid-column: 1;
+  }
+
+  .task-actions {
+    justify-content: flex-start;
   }
 
   .weekday-grid {

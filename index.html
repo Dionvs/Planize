@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="nl">
-  <!-- Poproute 57 update: multi-family-v2 -->
+  <!-- Gezinslijst update: compact-ui-v2 -->
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,7 @@
     <meta name="description" content="Gedeelde schoonmaak- en takenlijst voor het gezin.">
     <title>Gezinslijst</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css?v=multi-family-v2">
+    <link rel="stylesheet" href="style.css?v=compact-ui-v2">
   </head>
   <body>
     <section id="familyGate" class="gate-screen">
@@ -41,7 +41,7 @@
           <p>Schoonmaak- en huishoudtaken, realtime gedeeld.</p>
         </div>
         <div class="member-picker">
-          <label for="memberSelect">Gezinslid</label>
+          <label for="memberSelect">Persoonfilter</label>
           <div class="member-actions">
             <select id="memberSelect"></select>
             <button id="logoutFamilyCodeButton" class="logout-button" type="button" aria-label="Uitloggen" title="Uitloggen">Uit</button>
@@ -55,7 +55,6 @@
       <section class="tabbar" aria-label="Hoofdmenu">
         <button class="tab-button is-active" type="button" data-view="today">Vandaag <span id="tabCountToday">(0)</span></button>
         <button class="tab-button" type="button" data-view="week">Deze week <span id="tabCountWeek">(0)</span></button>
-        <button class="tab-button" type="button" data-view="future">Toekomstig <span id="tabCountFuture">(0)</span></button>
         <button class="tab-button" type="button" data-view="manage">Taken lijst <span id="tabCountManage">(0)</span></button>
       </section>
 
@@ -200,29 +199,32 @@
         <div id="roomList" class="room-list"></div>
       </section>
 
-      <section class="filters hidden" aria-label="Filters" id="manageFilters">
-        <label class="search-field">
-          Zoek op taaknaam
-          <input id="searchInput" type="search" placeholder="Zoeken...">
-        </label>
-        <label>
-          Ruimte
-          <select id="filterRoom"></select>
-        </label>
-        <label>
-          Categorie
-          <select id="filterCategory"></select>
-        </label>
-        <label>
-          Weergave
-          <select id="filterStatus"></select>
-        </label>
-        <label>
-          Prioriteit
-          <select id="filterPriority"></select>
-        </label>
-        <button id="clearFiltersButton" class="button button-secondary" type="button">Filters wissen</button>
-      </section>
+      <details class="filters hidden" aria-label="Filters" id="manageFilters">
+        <summary>Filters</summary>
+        <div class="filters-grid">
+          <label class="search-field">
+            Zoek op taaknaam
+            <input id="searchInput" type="search" placeholder="Zoeken...">
+          </label>
+          <label>
+            Ruimte
+            <select id="filterRoom"></select>
+          </label>
+          <label>
+            Categorie
+            <select id="filterCategory"></select>
+          </label>
+          <label>
+            Weergave
+            <select id="filterStatus"></select>
+          </label>
+          <label>
+            Prioriteit
+            <select id="filterPriority"></select>
+          </label>
+          <button id="clearFiltersButton" class="button button-secondary" type="button">Filters wissen</button>
+        </div>
+      </details>
 
       <section class="list-section" aria-label="Taken">
         <div class="section-heading">
@@ -247,6 +249,6 @@
     </main>
     </div>
 
-    <script type="module" src="script.js?v=multi-family-v2"></script>
+    <script type="module" src="script.js?v=compact-ui-v2"></script>
   </body>
 </html>

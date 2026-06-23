@@ -56,6 +56,7 @@ const STORAGE_KEYS = {
 const state = {
   tasks: [],
   rooms: [...DEFAULT_ROOMS],
+  familyMembers: [...DEFAULT_FAMILY_MEMBERS],
   filters: loadFilters(),
   familyMode: "join",
   activeFamily: loadActiveFamily(),
@@ -82,7 +83,6 @@ const els = {
   errorBox: document.querySelector("#errorBox"),
   tabCountToday: document.querySelector("#tabCountToday"),
   tabCountWeek: document.querySelector("#tabCountWeek"),
-  tabCountFuture: document.querySelector("#tabCountFuture"),
   tabCountManage: document.querySelector("#tabCountManage"),
   tabButtons: document.querySelectorAll(".tab-button"),
   manageFilters: document.querySelector("#manageFilters"),
@@ -105,6 +105,7 @@ const els = {
   formTitle: document.querySelector("#formTitle"),
   closeFormButton: document.querySelector("#closeFormButton"),
   taskForm: document.querySelector("#taskForm"),
+  saveTaskButton: document.querySelector("#saveTaskButton"),
   taskId: document.querySelector("#taskId"),
   taskName: document.querySelector("#taskName"),
   taskType: document.querySelector("#taskType"),
@@ -150,11 +151,6 @@ function init() {
   fillSelect(els.filterStatus, VIEW_FILTERS, false);
   fillSelect(els.filterPriority, PRIORITIES, true);
 
-  els.memberSelect.value = localStorage.getItem(STORAGE_KEYS.member) || getFamilyMembers()[0];
-  if (!els.memberSelect.value) {
-    els.memberSelect.value = getFamilyMembers()[0];
-    localStorage.setItem(STORAGE_KEYS.member, els.memberSelect.value);
-  }
   hydrateFilters();
   bindEvents();
   resetForm();
@@ -177,6 +173,7 @@ function bindEvents() {
       return;
     }
     localStorage.setItem(STORAGE_KEYS.member, els.memberSelect.value);
+    render();
   });
 
   els.taskAssignee.addEventListener("change", () => {
@@ -190,6 +187,7 @@ function bindEvents() {
         state.filters = { search: "", room: "", category: "", status: "Alles", priority: "" };
         localStorage.setItem(STORAGE_KEYS.filters, JSON.stringify(state.filters));
         hydrateFilters();
+        els.manageFilters.open = window.innerWidth > 640;
       }
       render();
     });
@@ -331,6 +329,7 @@ async function createFamily(name, code) {
     familyId,
     naam: family.naam,
     codeHash: await hashFamilyCode(code),
+    leden: [],
     actief: false,
     volgendeDeadline: "9999-12-31",
     aangemaaktOp: serverTimestamp()
@@ -352,6 +351,7 @@ async function joinFamily(name, code) {
       familyId: LEGACY_FAMILY.id,
       naam: LEGACY_FAMILY.naam,
       codeHash,
+      leden: DEFAULT_FAMILY_MEMBERS,
       actief: false,
       volgendeDeadline: "9999-12-31",
       aangemaaktOp: serverTimestamp()
@@ -451,9 +451,12 @@ async function startFirestore() {
       taskQuery,
       (snapshot) => {
         const documents = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+        const familySettings = documents.find((item) => item.documentType === "family-settings" && item.familyId === state.activeFamily.id);
         const roomSettings = documents.find((item) => item.id === roomSettingsId() || (item.documentType === "room-settings" && item.familyId === state.activeFamily.id) || (state.activeFamily.id === LEGACY_FAMILY.id && item.id === ROOM_SETTINGS_ID));
+        state.familyMembers = familySettings?.leden || (state.activeFamily.id === LEGACY_FAMILY.id ? [...DEFAULT_FAMILY_MEMBERS] : []);
         state.rooms = roomSettings?.ruimtes?.length ? roomSettings.ruimtes : [...DEFAULT_ROOMS];
         state.tasks = documents.filter((item) => !item.documentType && taskBelongsToActiveFamily(item));
+        refreshMemberSelects();
         syncRoomOptions();
         renderRoomList();
         state.notificationsShownForLoad = false;
@@ -532,40 +535,42 @@ function createTaskCard(task) {
   const card = document.createElement("article");
   card.className = `task-card ${state.currentView === "manage" ? "task-card-manage" : "task-card-planning"} ${statusClass(task.status)}`;
   card.dataset.id = task.id;
-  const noteHtml = task.notitie ? `<div class="task-note">${escapeHtml(task.notitie)}</div>` : "";
   const planningActions = `
     ${task.voltooid ? "" : '<button class="button button-primary" type="button" data-action="done">Gedaan</button>'}
-    <button class="button" type="button" data-action="calendar">Zet in Google Calendar</button>
   `;
   const manageActions = `
     <button class="button" type="button" data-action="edit">Bewerken</button>
-    <button class="button" type="button" data-action="calendar">Zet in Google Calendar</button>
   `;
   const selectionHtml = state.currentView === "manage"
     ? `<label class="select-task"><input type="checkbox" class="task-select" value="${escapeHtml(task.id)}"> Selecteer</label>`
     : "";
   card.innerHTML = `
     ${selectionHtml}
-    <div class="task-title">
+    <div class="task-main">
       <h3>${escapeHtml(task.naam || "Naamloze taak")}</h3>
       <div class="pill-row">
-        <span class="pill">${task.type === "eenmalig" ? "Eenmalig" : "Terugkerend"}</span>
         <span class="pill">${escapeHtml(task.toegewezenAan || GENERAL_ASSIGNEE)}</span>
         <span class="pill">${escapeHtml(task.ruimte || "Overig")}</span>
-        <span class="pill">${escapeHtml(task.categorie || "Overig")}</span>
-        <span class="pill pill-priority-${slug(task.prioriteit || "Normaal")}">${escapeHtml(task.prioriteit || "Normaal")}</span>
         <span class="pill status-label">${task.status}</span>
       </div>
     </div>
-    ${field("Laatst gedaan", formatDate(task.laatstGedaan))}
-    ${field("Deadline", formatDate(task.volgendeDeadline))}
-    ${field("Herhaalperiode", task.type === "eenmalig" ? "Eenmalig" : recurrenceLabel(task))}
-    ${field("Voor wie", task.toegewezenAan || GENERAL_ASSIGNEE)}
-    ${field("Type", task.type === "eenmalig" ? "Eenmalig" : "Terugkerend")}
+    <div class="task-deadline"><span>Deadline</span><strong>${escapeHtml(formatDate(task.volgendeDeadline))}</strong></div>
     <div class="task-actions">
       ${state.currentView === "manage" ? manageActions : planningActions}
     </div>
-    ${noteHtml}
+    <details class="task-more">
+      <summary>Details</summary>
+      <div class="task-detail-grid">
+        ${field("Categorie", task.categorie || "Overig")}
+        ${field("Prioriteit", task.prioriteit || "Normaal")}
+        ${field("Type", task.type === "eenmalig" ? "Eenmalig" : "Terugkerend")}
+        ${field("Laatst gedaan", formatDate(task.laatstGedaan))}
+        ${field("Herhaling", task.type === "eenmalig" ? "Eenmalig" : recurrenceLabel(task))}
+        ${field("Aangepast door", task.laatstAangepastDoor || "-")}
+      </div>
+      ${task.notitie ? `<div class="task-note">${escapeHtml(task.notitie)}</div>` : ""}
+      <button class="button button-secondary calendar-button" type="button" data-action="calendar">Zet in Google Calendar</button>
+    </details>
   `;
   return card;
 }
@@ -590,13 +595,11 @@ function syncViewChrome(counts) {
   const titles = {
     today: "Vandaag",
     week: "Deze week",
-    future: "Toekomstig",
     manage: "Taken lijst"
   };
   els.viewTitle.textContent = titles[state.currentView];
   els.tabCountToday.textContent = `(${counts.today})`;
   els.tabCountWeek.textContent = `(${counts.week})`;
-  els.tabCountFuture.textContent = `(${counts.future})`;
   els.tabCountManage.textContent = `(${counts.manage})`;
   els.tabButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.currentView));
   els.manageFilters.classList.toggle("hidden", state.currentView !== "manage");
@@ -609,13 +612,13 @@ function syncViewChrome(counts) {
 }
 
 function getTasksForCurrentView(tasks) {
-  const openTasks = tasks.filter((task) => task.actief !== false && !task.voltooid);
+  const filteredByPerson = filterTasksBySelectedPerson(tasks);
+  const openTasks = filteredByPerson.filter((task) => task.actief !== false && !task.voltooid);
   const today = todayIso();
   const sunday = endOfCurrentWeekIso();
   if (state.currentView === "today") return openTasks.filter((task) => task.status === "Te laat" || task.status === "Vandaag");
   if (state.currentView === "week") return openTasks.filter((task) => task.volgendeDeadline > today && task.volgendeDeadline <= sunday);
-  if (state.currentView === "future") return openTasks.filter((task) => task.volgendeDeadline > sunday);
-  return tasks.filter(matchesFilters);
+  return filteredByPerson.filter(matchesFilters);
 }
 
 function field(label, value) {
@@ -628,6 +631,8 @@ async function saveTask(event) {
   const payload = readTaskForm();
   if (!payload) return;
 
+  els.saveTaskButton.disabled = true;
+  els.saveTaskButton.textContent = id ? "Wijzigingen opslaan..." : "Taak toevoegen...";
   try {
     if (id) {
       const existingTask = state.tasks.find((task) => task.id === id);
@@ -650,10 +655,14 @@ async function saveTask(event) {
         actief: true
       });
     }
-    resetForm();
+    resetForm(true);
+    els.viewTitle.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     console.error(error);
     showError(id ? "Taak wijzigen mislukt." : "Taak toevoegen mislukt.");
+  } finally {
+    els.saveTaskButton.disabled = false;
+    els.saveTaskButton.textContent = els.taskId.value ? "Wijzigingen opslaan" : "Taak toevoegen";
   }
 }
 
@@ -815,11 +824,14 @@ async function addDefaultTasks() {
 }
 
 function openForm(task) {
+  closeRoomManager();
   els.taskFormPanel.classList.remove("hidden");
   els.formTitle.textContent = task ? "Taak bewerken" : "Nieuwe taak";
 
   if (!task) {
     resetForm(false);
+    els.saveTaskButton.textContent = "Taak toevoegen";
+    els.taskFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
 
@@ -835,6 +847,8 @@ function openForm(task) {
   els.taskNote.value = task.notitie || "";
   setRecurrenceForm(normalizeTask(task).herhaling);
   syncTaskTypeFields();
+  els.saveTaskButton.textContent = "Wijzigingen opslaan";
+  els.taskFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   els.taskName.focus();
 }
 
@@ -842,6 +856,7 @@ function resetForm(hide = true) {
   els.taskForm.reset();
   els.taskId.value = "";
   els.formTitle.textContent = "Nieuwe taak";
+  els.saveTaskButton.textContent = "Taak toevoegen";
   els.taskType.value = "terugkerend";
   els.taskRoom.value = state.rooms.includes("Algemeen") ? "Algemeen" : state.rooms[0];
   els.taskCategory.value = "Wekelijks";
@@ -973,20 +988,26 @@ function maybeShowBrowserNotifications(counts) {
 }
 
 function getCounts(tasks) {
-  const openTasks = tasks.filter((task) => task.actief !== false && !task.voltooid);
+  const filteredByPerson = filterTasksBySelectedPerson(tasks);
+  const openTasks = filteredByPerson.filter((task) => task.actief !== false && !task.voltooid);
   const today = todayIso();
   const sunday = endOfCurrentWeekIso();
   return {
     today: openTasks.filter((task) => task.status === "Te laat" || task.status === "Vandaag").length,
     overdue: openTasks.filter((task) => task.status === "Te laat").length,
     week: openTasks.filter((task) => task.volgendeDeadline > today && task.volgendeDeadline <= sunday).length,
-    future: openTasks.filter((task) => task.volgendeDeadline > sunday).length,
-    manage: tasks.length,
+    manage: filteredByPerson.length,
     total: openTasks.length,
     oneTimeToday: openTasks.filter((task) => task.status === "Vandaag" && task.type === "eenmalig").length,
     recurringToday: openTasks.filter((task) => task.status === "Vandaag" && task.type === "terugkerend").length,
-    completed: tasks.filter((task) => task.voltooid).length
+    completed: filteredByPerson.filter((task) => task.voltooid).length
   };
+}
+
+function filterTasksBySelectedPerson(tasks) {
+  const selected = els.memberSelect.value || GENERAL_ASSIGNEE;
+  if (selected === GENERAL_ASSIGNEE || selected === ADD_MEMBER_VALUE) return tasks;
+  return tasks.filter((task) => (task.toegewezenAan || GENERAL_ASSIGNEE) === selected);
 }
 
 function matchesFilters(task) {
@@ -1356,24 +1377,18 @@ function renderRoomList() {
 
 function refreshMemberSelects(selectedAssignee = els.taskAssignee?.value || GENERAL_ASSIGNEE) {
   const members = getFamilyMembers();
-  fillSelect(els.memberSelect, [...members, "Gezinslid toevoegen..."], false, [...members, ADD_MEMBER_VALUE]);
-  fillSelect(els.taskAssignee, [GENERAL_ASSIGNEE, ...members, "Gezinslid toevoegen..."], false, [GENERAL_ASSIGNEE, ...members, ADD_MEMBER_VALUE]);
-  if (members.includes(localStorage.getItem(STORAGE_KEYS.member))) {
-    els.memberSelect.value = localStorage.getItem(STORAGE_KEYS.member);
-  }
+  fillSelect(els.memberSelect, [GENERAL_ASSIGNEE, ...members, "Persoon toevoegen..."], false, [GENERAL_ASSIGNEE, ...members, ADD_MEMBER_VALUE]);
+  fillSelect(els.taskAssignee, [GENERAL_ASSIGNEE, ...members, "Persoon toevoegen..."], false, [GENERAL_ASSIGNEE, ...members, ADD_MEMBER_VALUE]);
+  const savedFilter = localStorage.getItem(STORAGE_KEYS.member);
+  els.memberSelect.value = [GENERAL_ASSIGNEE, ...members].includes(savedFilter) ? savedFilter : GENERAL_ASSIGNEE;
   els.taskAssignee.value = [GENERAL_ASSIGNEE, ...members].includes(selectedAssignee) ? selectedAssignee : GENERAL_ASSIGNEE;
 }
 
 function getFamilyMembers() {
-  try {
-    const customMembers = JSON.parse(localStorage.getItem(STORAGE_KEYS.customMembers) || "[]");
-    return [...new Set([...DEFAULT_FAMILY_MEMBERS, ...customMembers].filter(Boolean))];
-  } catch {
-    return DEFAULT_FAMILY_MEMBERS;
-  }
+  return [...new Set((state.familyMembers || []).filter(Boolean))];
 }
 
-function addFamilyMemberFromPrompt(targetSelect = els.memberSelect) {
+async function addFamilyMemberFromPrompt(targetSelect = els.memberSelect) {
   const name = prompt("Naam van nieuw gezinslid:");
   if (!name || !name.trim()) {
     targetSelect.value = targetSelect === els.taskAssignee ? GENERAL_ASSIGNEE : selectedMember();
@@ -1381,15 +1396,25 @@ function addFamilyMemberFromPrompt(targetSelect = els.memberSelect) {
   }
 
   const cleanName = name.trim();
-  const customMembers = getFamilyMembers().filter((member) => !DEFAULT_FAMILY_MEMBERS.includes(member));
-  if (!customMembers.includes(cleanName) && !DEFAULT_FAMILY_MEMBERS.includes(cleanName)) {
-    localStorage.setItem(STORAGE_KEYS.customMembers, JSON.stringify([...customMembers, cleanName]));
+  const members = getFamilyMembers();
+  if (!members.some((member) => member.toLowerCase() === cleanName.toLowerCase())) {
+    state.familyMembers = [...members, cleanName];
+    try {
+      await setDoc(doc(db, "tasks", familySettingsId(state.activeFamily.id)), { leden: state.familyMembers }, { merge: true });
+    } catch (error) {
+      console.error(error);
+      showError("Persoon toevoegen mislukt.");
+      state.familyMembers = members;
+      refreshMemberSelects();
+      return;
+    }
   }
 
   refreshMemberSelects(cleanName);
   if (targetSelect === els.memberSelect) {
     els.memberSelect.value = cleanName;
     localStorage.setItem(STORAGE_KEYS.member, cleanName);
+    render();
   } else {
     els.taskAssignee.value = cleanName;
   }
