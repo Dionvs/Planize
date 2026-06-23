@@ -1,4 +1,4 @@
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js?v=planize-v2";
 
 let initializeApp;
 let addDoc;
@@ -270,6 +270,9 @@ function showApp() {
   els.appRoot.classList.remove("hidden");
   els.activeFamilyName.textContent = state.activeFamily?.naam || "Planize";
   document.title = state.activeFamily?.naam ? `${state.activeFamily.naam} - Planize` : "Planize";
+  if (state.activeFamily?.id === LEGACY_FAMILY.id) {
+    registerLegacyFamily().catch((error) => console.warn("Poproute 57 registreren uitgesteld", error));
+  }
   if (!unsubscribeTasks) startFirestore();
 }
 
@@ -467,8 +470,9 @@ async function startFirestore() {
       },
       (error) => {
         console.error(error);
+        const details = error?.code ? ` (${error.code})` : "";
         els.syncStatus.textContent = "Firestore niet bereikbaar";
-        showError("Firestore is niet bereikbaar. Controleer je internetverbinding, Firebase-config en security rules.");
+        showError(`Firestore is niet bereikbaar${details}. Controleer je internetverbinding, Firebase-config en security rules.`);
       }
     );
   } catch (error) {
@@ -480,8 +484,8 @@ async function startFirestore() {
 function loadFirebaseModules() {
   if (!firebaseModulesPromise) {
     firebaseModulesPromise = Promise.all([
-      import("./firebase-app.js?v=planize-v1"),
-      import("./firebase-firestore.js?v=planize-v1")
+      import("./firebase-app.js?v=planize-v2"),
+      import("./firebase-firestore.js?v=planize-v2")
     ]).then(([appModule, firestoreModule]) => {
       initializeApp = appModule.initializeApp;
       ({
@@ -660,7 +664,8 @@ async function saveTask(event) {
     els.viewTitle.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     console.error(error);
-    showError(id ? "Taak wijzigen mislukt." : "Taak toevoegen mislukt.");
+    const details = error?.code ? ` (${error.code})` : "";
+    showError(`${id ? "Taak wijzigen mislukt" : "Taak toevoegen mislukt"}${details}.`);
   } finally {
     els.saveTaskButton.disabled = false;
     els.saveTaskButton.textContent = els.taskId.value ? "Wijzigingen opslaan" : "Taak toevoegen";
