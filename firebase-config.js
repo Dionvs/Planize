@@ -1,11 +1,8 @@
-// Vul deze waarden met de config uit je Firebase Console.
-// Laat de exportnaam staan; script.js gebruikt deze exacte naam.
 export const firebaseConfig = {
-  apiKey: "AIzaSyB7Q1xpyJG968uAdkdbXJKVVhPPMtaY9lo",
-  authDomain: "to-do-in-huis.firebaseapp.com",
-  projectId: "to-do-in-huis",
-  storageBucket: "to-do-in-huis.firebasestorage.app",
-  messagingSenderId: "633124013245",
-  appId: "1:633124013245:web:2692baf7397faec37663d4",
-  measurementId: "G-YJK10TT2KS"
+  apiKey: "AIzaSyCdRT9PRq31iD2jxBsHHAzd-lhFQ61QD3U",
+  authDomain: "planize-631b5.firebaseapp.com",
+  projectId: "planize-631b5",
+  storageBucket: "planize-631b5.firebasestorage.app",
+  messagingSenderId: "270410224736",
+  appId: "1:270410224736:web:bdc389cd79a0a006799f05"
 };
