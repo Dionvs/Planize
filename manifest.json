@@ -1,7 +1,7 @@
 {
-  "name": "Gezinslijst",
-  "short_name": "Gezinslijst",
-  "description": "Gedeelde schoonmaak- en huishoudtaken voor het gezin.",
+  "name": "Planize",
+  "short_name": "Planize",
+  "description": "Gedeelde schoonmaak- en huishoudtaken voor gezinnen.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

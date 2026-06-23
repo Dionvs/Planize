@@ -172,7 +172,6 @@ function bindEvents() {
       addFamilyMemberFromPrompt();
       return;
     }
-    localStorage.setItem(STORAGE_KEYS.member, els.memberSelect.value);
     render();
   });
 
@@ -269,8 +268,8 @@ function logoutFamilyCode() {
 function showApp() {
   els.familyGate.classList.add("hidden");
   els.appRoot.classList.remove("hidden");
-  els.activeFamilyName.textContent = state.activeFamily?.naam || "Gezinslijst";
-  document.title = state.activeFamily?.naam || "Gezinslijst";
+  els.activeFamilyName.textContent = state.activeFamily?.naam || "Planize";
+  document.title = state.activeFamily?.naam ? `${state.activeFamily.naam} - Planize` : "Planize";
   if (!unsubscribeTasks) startFirestore();
 }
 
@@ -307,8 +306,10 @@ function showFamilyError(message) {
 
 async function ensureFirestoreConnection() {
   if (firebaseConfig.apiKey.includes("VUL_HIER")) throw new Error("Firebase-config ontbreekt");
-  await loadFirebaseModules();
+  els.syncStatus.textContent = "Firebase laden...";
+  await withTimeout(loadFirebaseModules(), 12000, "Firebase kon niet worden geladen.");
   if (!db) {
+    els.syncStatus.textContent = "Database verbinden...";
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
   }
@@ -445,7 +446,7 @@ async function startFirestore() {
   }
 
   try {
-    await ensureFirestoreConnection();
+    await withTimeout(ensureFirestoreConnection(), 15000, "Firebase reageert niet op tijd.");
     const taskQuery = query(collection(db, "tasks"), orderBy("volgendeDeadline", "asc"));
     unsubscribeTasks = onSnapshot(
       taskQuery,
@@ -479,8 +480,8 @@ async function startFirestore() {
 function loadFirebaseModules() {
   if (!firebaseModulesPromise) {
     firebaseModulesPromise = Promise.all([
-      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js")
+      import("./firebase-app.js?v=planize-v1"),
+      import("./firebase-firestore.js?v=planize-v1")
     ]).then(([appModule, firestoreModule]) => {
       initializeApp = appModule.initializeApp;
       ({
@@ -861,7 +862,10 @@ function resetForm(hide = true) {
   els.taskRoom.value = state.rooms.includes("Algemeen") ? "Algemeen" : state.rooms[0];
   els.taskCategory.value = "Wekelijks";
   els.taskPriority.value = "Normaal";
-  els.taskAssignee.value = GENERAL_ASSIGNEE;
+  const selectedFilter = els.memberSelect.value;
+  els.taskAssignee.value = selectedFilter && selectedFilter !== GENERAL_ASSIGNEE && selectedFilter !== ADD_MEMBER_VALUE
+    ? selectedFilter
+    : GENERAL_ASSIGNEE;
   els.taskRepeatUnit.value = "week";
   els.taskRepeatCount.value = "1";
   els.taskDeadline.value = todayIso();
@@ -901,7 +905,7 @@ function exportTodayIcs() {
       .filter((task) => task.volgendeDeadline <= today)
       .sort(sortTasks);
 
-    downloadIcs(tasks, `poproute-57-vandaag-${today}.ics`, "Er zijn geen taken voor vandaag om te exporteren.");
+    downloadIcs(tasks, `planize-vandaag-${today}.ics`, "Er zijn geen taken voor vandaag om te exporteren.");
   } catch (error) {
     console.error(error);
     showError("Agenda-export mislukt.");
@@ -919,7 +923,7 @@ function exportWeekIcs() {
       .filter((task) => task.volgendeDeadline >= today && task.volgendeDeadline <= sunday)
       .sort(sortTasks);
 
-    downloadIcs(tasks, `poproute-57-deze-week-${today}.ics`, "Er zijn geen taken voor deze week om te exporteren.");
+    downloadIcs(tasks, `planize-deze-week-${today}.ics`, "Er zijn geen taken voor deze week om te exporteren.");
   } catch (error) {
     console.error(error);
     showError("Agenda-export mislukt.");
@@ -939,7 +943,7 @@ function downloadIcs(tasks, filename, emptyMessage) {
     end.setUTCDate(end.getUTCDate() + 1);
     return [
       "BEGIN:VEVENT",
-      `UID:${task.id}-${task.volgendeDeadline}@poproute-57`,
+      `UID:${task.id}-${task.volgendeDeadline}@planize`,
       `DTSTAMP:${nowStamp}`,
       `DTSTART;VALUE=DATE:${toCompactDate(start)}`,
       `DTEND;VALUE=DATE:${toCompactDate(end)}`,
@@ -949,7 +953,7 @@ function downloadIcs(tasks, filename, emptyMessage) {
     ].join("\r\n");
   });
 
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Poproute 57//Schoonmaak//NL", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Planize//Taken//NL", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
   const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
@@ -1377,10 +1381,10 @@ function renderRoomList() {
 
 function refreshMemberSelects(selectedAssignee = els.taskAssignee?.value || GENERAL_ASSIGNEE) {
   const members = getFamilyMembers();
+  const currentFilter = els.memberSelect?.value;
   fillSelect(els.memberSelect, [GENERAL_ASSIGNEE, ...members, "Persoon toevoegen..."], false, [GENERAL_ASSIGNEE, ...members, ADD_MEMBER_VALUE]);
   fillSelect(els.taskAssignee, [GENERAL_ASSIGNEE, ...members, "Persoon toevoegen..."], false, [GENERAL_ASSIGNEE, ...members, ADD_MEMBER_VALUE]);
-  const savedFilter = localStorage.getItem(STORAGE_KEYS.member);
-  els.memberSelect.value = [GENERAL_ASSIGNEE, ...members].includes(savedFilter) ? savedFilter : GENERAL_ASSIGNEE;
+  els.memberSelect.value = [GENERAL_ASSIGNEE, ...members].includes(currentFilter) ? currentFilter : GENERAL_ASSIGNEE;
   els.taskAssignee.value = [GENERAL_ASSIGNEE, ...members].includes(selectedAssignee) ? selectedAssignee : GENERAL_ASSIGNEE;
 }
 
@@ -1413,7 +1417,6 @@ async function addFamilyMemberFromPrompt(targetSelect = els.memberSelect) {
   refreshMemberSelects(cleanName);
   if (targetSelect === els.memberSelect) {
     els.memberSelect.value = cleanName;
-    localStorage.setItem(STORAGE_KEYS.member, cleanName);
     render();
   } else {
     els.taskAssignee.value = cleanName;

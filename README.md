@@ -1,11 +1,11 @@
-# Poproute 57
+# Planize
 
 Een gedeelde schoonmaak- en takenapp voor een gezin. De website wordt gehost via GitHub Pages. Firebase Firestore blijft de centrale database voor realtime synchronisatie tussen alle apparaten.
 
 De app gebruikt:
 
 - HTML, CSS en JavaScript
-- Firebase Web SDK via CDN-imports
+- Officiele Firebase Web SDK, lokaal meegeleverd met de app
 - Firebase Firestore voor gedeelde taken en ruimtes
 - GitHub Pages voor hosting
 - `localStorage` alleen voor lokale voorkeuren
@@ -88,7 +88,7 @@ Waarschuwing: iedereen die de link en Firebase-projectgegevens heeft, kan techni
 1. Ga naar [GitHub](https://github.com/).
 2. Log in of maak een account.
 3. Klik op `New repository`.
-4. Geef de repository bijvoorbeeld de naam `poproute-57`.
+4. Geef de repository bijvoorbeeld de naam `planize`.
 5. Kies `Public` als je GitHub Pages gratis vanuit deze repository wilt gebruiken.
 6. Klik op `Create repository`.
 
@@ -104,6 +104,8 @@ Upload minimaal deze bestanden naar de hoofdmap van de repository:
 - `firebase-config.js`
 - `manifest.json`
 - `service-worker.js`
+- `firebase-app.js`
+- `firebase-firestore.js`
 - `README.md`
 
 Via de GitHub-website:
@@ -144,7 +146,7 @@ Klik daarna op `Save`. GitHub bouwt de website. Dit kan enkele minuten duren.
 De link heeft meestal deze vorm:
 
 ```txt
-https://jouw-gebruikersnaam.github.io/poproute-57/
+https://jouw-gebruikersnaam.github.io/planize/
 ```
 
 Open deze link op meerdere telefoons, tablets of computers. Alle apparaten gebruiken dezelfde Firestore-database en zien wijzigingen realtime.

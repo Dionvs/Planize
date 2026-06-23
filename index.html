@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="nl">
-  <!-- Gezinslijst update: compact-ui-v2 -->
+  <!-- Planize update: planize-v1 -->
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#256f67">
-    <meta name="description" content="Gedeelde schoonmaak- en takenlijst voor het gezin.">
-    <title>Gezinslijst</title>
+    <meta name="description" content="Planize: gedeelde schoonmaak- en takenplanning voor gezinnen.">
+    <title>Planize</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css?v=compact-ui-v2">
+    <link rel="stylesheet" href="style.css?v=planize-v1">
   </head>
   <body>
     <section id="familyGate" class="gate-screen">
@@ -21,7 +21,7 @@
         </div>
         <label>
           Gezinsnaam
-          <input id="familyNameInput" type="text" maxlength="60" autocomplete="organization" placeholder="Bijvoorbeeld: Poproute 57" required>
+          <input id="familyNameInput" type="text" maxlength="60" autocomplete="organization" placeholder="Bijvoorbeeld: Familie Jansen" required>
         </label>
         <label>
           Gezinscode
@@ -37,8 +37,8 @@
     <header class="app-header">
       <div class="header-main">
         <div>
-          <h1 id="activeFamilyName">Poproute 57</h1>
-          <p>Schoonmaak- en huishoudtaken, realtime gedeeld.</p>
+          <h1>Planize</h1>
+          <p><strong id="activeFamilyName">Jouw gezin</strong> · schoonmaak- en huishoudtaken, realtime gedeeld.</p>
         </div>
         <div class="member-picker">
           <label for="memberSelect">Persoonfilter</label>
@@ -249,6 +249,6 @@
     </main>
     </div>
 
-    <script type="module" src="script.js?v=compact-ui-v2"></script>
+    <script type="module" src="script.js?v=planize-v1"></script>
   </body>
 </html>
